@@ -10,7 +10,7 @@ COMMON=../common/
 #  POSIX definitions take precedence.
 
 
-DC=g++ -std=c++11 -g -Wall -I$(COMMON) -o $@ -c $<
-DT=g++ -std=c++11 -g -Wall -o $@ $^
+DC=g++ -std=c++14 -g -Wall -I$(COMMON) -o $@ -c $<
+DT=g++ -std=c++14 -g -Wall -o $@ $^
 
 

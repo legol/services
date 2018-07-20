@@ -21,13 +21,34 @@ std::shared_ptr<EpollEvent> EpollEvent::create() {
 int32_t EpollEvent::registerSocket(
 		int32_t fd, 
 		uint32_t event,
-		std::function<int(int)> onRead,
-		std::function<int(int)> onWrite,
-		std::function<int(int)> onError) {
+		std::function<int32_t(int32_t)> onRead,
+		std::function<int32_t(int32_t)> onWrite,
+		std::function<int32_t(int32_t)> onError) {
+	std::lock_guard<std::mutex>	lock(callbacks_mutex);
+
+	if (epoll_fd <= 0) {
+		return -1;
+	}
+
+    epoll_event ev = {0};
+    ev.data.fd = fd;
+    ev.events  = event;
+    if(epoll_ctl( epoll_fd, EPOLL_CTL_ADD, fd, &ev) != 0) {
+		return -1;
+	} 
+
+
+	callbacks[fd] = std::shared_ptr<EpollCallbacks>(new EpollCallbacks(
+				onRead, onWrite, onError));	
 	return 0;
 }
 
 int32_t EpollEvent::unregisterSocket(int32_t fd) {
+	std::lock_guard<std::mutex>	lock(callbacks_mutex);
+	
+	epoll_ctl( epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+
+	callbacks.erase(fd);
 	return 0;
 }
 
@@ -48,7 +69,7 @@ void EpollEvent::epollWaitLoop() {
 			if (e == EINTR)
 				continue;
 
-			//OnError();
+			//OnError(fatal);
 			break;
 		}
 
@@ -57,19 +78,25 @@ void EpollEvent::epollWaitLoop() {
 			auto curr_fd = events[i].data.fd;
 			auto curr_event = events[i].events;
 
+			auto itrCallback = callbacks.find(curr_fd);
+			if (itrCallback == callbacks.end()) {
+				// OnError(not fatal);
+				continue;
+			}
+
 			if (curr_event & (EPOLLERR | EPOLLHUP))
 			{
-				//pEpollEventCallback->OnEpollErr( curr_fd, this );
+				(itrCallback->second)->onError(curr_fd);
 			} 
 
 			if (curr_event & EPOLLIN)
 			{
-				//pEpollEventCallback->OnEpollIn( curr_fd, this );
+				(itrCallback->second)->onRead(curr_fd);
 			}
 
 			if (curr_event & EPOLLOUT)
 			{
-				//pEpollEventCallback->OnEpollOut( curr_fd, this ); // itrCallback->second might be freed here, so I retain it as pEpollEventCallback.
+				(itrCallback->second)->onWrite(curr_fd);
 			}
 		}
 	}

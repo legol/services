@@ -13,8 +13,8 @@ LIB=-L$(LIBRARY_PATH) -lrt -lcrypto -ldl -lz $(LIBRARY_PATH)/*.o -lboost_thread 
 #DC=g++ -g -Wall -DBUILD_TIME="$(BUILD_TIME)"  -DPROJECT_VERSION="$(PROJECT_BUILD_VERSION)" -DMODULE_VERSION="$(MODULE_BUILD_VERSION)" -DTAG_VERSION="$(TAG_LAST)" -o $@ -c $<
 #DT=g++ -g -Wall -DBUILD_TIME="$(BUILD_TIME)"  -DPROJECT_VERSION="$(PROJECT_BUILD_VERSION)" -DMODULE_VERSION="$(MODULE_BUILD_VERSION)" -DTAG_VERSION="$(TAG_LAST)" -o $@ $^
 
-DC=g++ -std=c++11 -g -Wall -o $@ -c $<
-DT=g++ -std=c++11 -g -Wall -o $@ $^
+DC=g++ -std=c++14 -g -Wall -o $@ -c $<
+DT=g++ -std=c++14 -g -Wall -o $@ $^
 
 AR = ar r
 RANLIB = ranlib
