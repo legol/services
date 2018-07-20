@@ -30,7 +30,7 @@ class EpollCallbacks {
 class EpollEvent {
 	public:
 		virtual ~EpollEvent(void);
-		std::shared_ptr<EpollEvent> create();
+		static std::shared_ptr<EpollEvent> create();
 		int32_t registerSocket(
 			int32_t fd, 
 			uint32_t event,
