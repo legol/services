@@ -80,6 +80,54 @@ int32_t ServerThread::start() {
 }
 
 int32_t ServerThread::onRead(int32_t fd) {
+
+    if ( NULL == m_pEpollEvent.get() )
+    {
+        return;
+    }
+
+    if (fd == m_nListenFd)
+    {
+        // ÐÂÁ¬½Ó
+        sockaddr_in addr;
+        socklen_t addr_len = sizeof ( addr );
+        int32_t   new_fd   = accept ( fd, (sockaddr*)&addr, &addr_len);
+
+        if ( -1 == new_fd)
+        {
+            return;
+        }
+
+        if (m_pTcpEventCallback)
+        {
+            m_pTcpEventCallback->OnNewSocket( new_fd, this);
+        }
+
+        CNetworkUtil::SetNonBlockSocket( new_fd );
+        if (-1 == m_pEpollEvent->RegisterEvent(new_fd, EPOLLIN | EPOLLOUT | EPOLLET, m_pCallback_IEpollEventCallback ) )
+        {
+            Close (fd);
+        }
+
+        if (m_pTcpEventCallback)
+        {
+            if (-1 == m_pTcpEventCallback->OnConnected (new_fd, addr, this))
+            {
+                Close (new_fd);
+            }
+        }
+    }
+    else
+    {
+        // Êý¾Ýµ½À´
+        if (m_pTcpEventCallback)
+        {
+            if ( -1 == m_pTcpEventCallback->OnDataIn(fd, this) )
+            {
+                Close (fd);
+            }
+        }
+    }
 	return 0;
 }
 
