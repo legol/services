@@ -1,6 +1,6 @@
 include ../makefile.inc.lv1
 
-all: epoll_event.o server_thread.o
+all: epoll_event.o server_thread.o framed_transport.o
 	@cp *.h $(TARGET_INC_PATH) ; cp *.o $(TARGET_LIB_PATH)
 
 #epoll.o:epoll.c
