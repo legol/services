@@ -3,6 +3,7 @@ MODULE_NAME=im_server
 
 BINDIR=./output
 TARGET=apps/server
+TARGET1=apps/test_client
 INCLUDE_PATH=./include
 LIBRARY_PATH=./lib
 SHARED=shared
@@ -19,8 +20,9 @@ DT=g++ -std=c++14 -g -Wall -o $@ $^
 AR = ar r
 RANLIB = ranlib
 
-release:sub_dir static_lib clrtarget $(TARGET) 
+release:sub_dir static_lib clrtarget $(TARGET) $(TARGET1)
 	cp $(TARGET) $(BINDIR)
+	cp $(TARGET1) $(BINDIR)
 
 sub_dir: dir
 #   -@mkdir include
@@ -34,25 +36,31 @@ dir:
 	@if [ ! -d $(INCLUDE_PATH) ]; then mkdir $(INCLUDE_PATH); fi
 	@if [ ! -d $(LIBRARY_PATH) ]; then mkdir $(LIBRARY_PATH); fi
 
-static_lib: 
+static_lib:
 	$(AR) ./lib/lib$(MODULE_NAME).a ./lib/*.o
 	$(RANLIB) ./lib/lib$(MODULE_NAME).a
 
 clrtarget:
 	-@rm -rf $(TARGET)
+	-@rm -rf $(TARGET1)
 
-OBJS_APPS_SERVER = apps/server.o 
-apps/server:$(OBJS_APPS_SERVER) 
-	$(DT) $(LIB) 
+OBJS_APPS_SERVER = apps/server.o
+apps/server:$(OBJS_APPS_SERVER)
+	$(DT) $(LIB)
 	@echo ""
 
-%.o:%.cpp 
+OBJS_APPS_TEST_CLIENT = apps/test_client.o
+apps/test_client:$(OBJS_APPS_TEST_CLIENT)
+	$(DT) $(LIB)
+	@echo ""
+
+%.o:%.cpp
 	$(DC) $(INC)
 
-%.o:%.cc 
+%.o:%.cc
 	$(DC) $(INC)
 
-%.o:%.c 
+%.o:%.c
 	$(DC) $(INC)
 
 %.o:%.cpp %.h
@@ -76,5 +84,3 @@ clean: dir
 	-@rm -rf  apps/*.o
 	-@rm -rf $(TARGET)
 	-@rm -rf output/*
-
-

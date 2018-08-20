@@ -69,9 +69,13 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 
 std::shared_ptr<ITransport> FramedTransport::create(
-    std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived) {
+    std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived,
+    std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected,
+    std::function<void(int32_t fd)> onDisconnected) {
   auto instance = std::shared_ptr<FramedTransport>(new FramedTransport());
   instance->onPacketReceived = onPacketReceived;
+  instance->onConnected = onConnected;
+  instance->onDisconnected = onDisconnected;
 
   return instance;
 }
@@ -151,4 +155,12 @@ int32_t FramedTransport::forgeFrames(
   }
 
   return 0;
+}
+
+int32_t FramedTransport::newConnection(int32_t fd, sockaddr_in &addr) {
+  return onConnected(fd, addr);
+}
+
+void FramedTransport::connectionClosed(int32_t fd) {
+  onDisconnected(fd);
 }

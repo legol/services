@@ -77,7 +77,7 @@ int32_t ServerThread::bindAddress(int32_t fd, std::string ip, int32_t port) {
   return bind(fd, (sockaddr *)&server_addr, sizeof(server_addr));
 }
 
-int32_t ServerThread::start() {
+int32_t ServerThread::startAndJoin() {
   std::thread thread(std::bind(&EpollEvent::epollWaitLoop, epoll_event.get()));
   thread.join();
 
@@ -93,15 +93,6 @@ int32_t ServerThread::onRead(int32_t fd) {
 
     if (-1 == new_socket) {
       return 0;
-    }
-
-    setNonBlocking(new_socket);
-    if (epoll_event->registerSocket(
-            new_socket, EPOLLIN | EPOLLOUT | EPOLLET,
-            std::bind(&ServerThread::onRead, this, _1),
-            std::bind(&ServerThread::onWrite, this, _1),
-            std::bind(&ServerThread::onError, this, _1)) != 0) {
-      closeConnection(new_socket);
     }
 
     if (onNewConnection(new_socket, addr) != 0) {
@@ -122,9 +113,25 @@ int32_t ServerThread::onWrite(int32_t fd) {
 
 int32_t ServerThread::onError(int32_t fd) { return 0; }
 
-int32_t ServerThread::onNewConnection(int32_t fd, sockaddr_in& addr) { return 0; }
+int32_t ServerThread::onNewConnection(int32_t fd, sockaddr_in &addr) {
+  setNonBlocking(fd);
+  if (epoll_event->registerSocket(
+          fd, EPOLLIN | EPOLLOUT | EPOLLET,
+          std::bind(&ServerThread::onRead, this, _1),
+          std::bind(&ServerThread::onWrite, this, _1),
+          std::bind(&ServerThread::onError, this, _1)) != 0) {
+    closeConnection(fd);
+  }
+
+  return transport->newConnection(fd, addr);
+}
+
+void ServerThread::onConnectionClosed(int32_t fd) {
+  transport->connectionClosed(fd);
+}
 
 void ServerThread::closeConnection(int32_t fd) {
+  onConnectionClosed(fd);
   epoll_event->unregisterSocket(fd);
   close(fd);
 }

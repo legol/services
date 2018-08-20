@@ -2,6 +2,14 @@
 
 #include <map>
 #include <memory>
+#include <fcntl.h>
+#include <functional>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #include "transport.h"
 
@@ -21,10 +29,14 @@ class FramedPacketInternal;
 
 class FramedTransport : public ITransport {
 public:
-  static std::shared_ptr<ITransport> create(
-      std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived);
+  static std::shared_ptr<ITransport>
+  create(std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived,
+         std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected,
+         std::function<void(int32_t fd)> onDisconnected);
 
   virtual int32_t readSocket(int32_t fd) override;
+  virtual int32_t newConnection(int32_t fd, sockaddr_in &addr) override;
+  virtual void connectionClosed(int32_t fd) override;
 
 private:
   int32_t forgeFrames(std::shared_ptr<FramedPacketInternal> receiving_packet,
@@ -32,5 +44,8 @@ private:
 
 private:
   std::map<int32_t, std::shared_ptr<FramedPacketInternal>> receiving_buffer;
+
   std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived;
+  std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected;
+  std::function<void(int32_t fd)> onDisconnected;
 };

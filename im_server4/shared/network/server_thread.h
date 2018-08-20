@@ -13,7 +13,7 @@ public:
 
   static std::shared_ptr<ServerThread>
   create(std::string ip, int32_t port, std::shared_ptr<ITransport> trasport);
-  int32_t start(); // will start a thread to run serverLoop()
+  int32_t startAndJoin(); // will start a thread to run serverLoop()
 
 private:
   ServerThread();
@@ -25,7 +25,8 @@ private:
   int32_t onWrite(int32_t fd);
   int32_t onError(int32_t fd);
 
-  int32_t onNewConnection(int32_t fd, sockaddr_in& addr) ;
+  int32_t onNewConnection(int32_t fd, sockaddr_in& addr);
+  void onConnectionClosed(int32_t fd);
 
   void closeConnection(int32_t fd);
 

@@ -79,16 +79,18 @@ void EpollEvent::epollWaitLoop() {
         continue;
       }
 
+      // itrCallback might be invalid after onXXXX()
+      auto callback = itrCallback->second;
       if (curr_event & (EPOLLERR | EPOLLHUP)) {
-        (itrCallback->second)->onError(curr_fd);
+        callback->onError(curr_fd);
       }
 
       if (curr_event & EPOLLIN) {
-        (itrCallback->second)->onRead(curr_fd);
+        callback->onRead(curr_fd);
       }
 
       if (curr_event & EPOLLOUT) {
-        (itrCallback->second)->onWrite(curr_fd);
+        callback->onWrite(curr_fd);
       }
     }
   }
