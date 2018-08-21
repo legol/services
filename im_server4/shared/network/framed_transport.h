@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <deque>
+#include <mutex>
 
 #include "transport.h"
 
@@ -28,6 +29,7 @@ public:
 
 class FramedPacketReceiving;
 class FramedPacketSending;
+class FramedPacketSendingQ;
 
 class FramedTransport : public ITransport {
 public:
@@ -43,7 +45,7 @@ public:
   virtual void connectionClosed(int32_t fd) override;
 
   virtual int32_t sendPacket(int32_t fd,
-                             shared_ptr<FramedPacketSending> packet) override;
+                             std::shared_ptr<FramedPacketSending> packet) override;
 
 private:
   int32_t forgeFrames(std::shared_ptr<FramedPacketReceiving> receiving_packet,
@@ -52,7 +54,9 @@ private:
 
 private:
   std::map<int32_t, std::shared_ptr<FramedPacketReceiving>> receiving_buffer;
+
   std::map<int32_t, std::shared_ptr<FramedPacketSendingQ>> sending_buffer;
+  std::mutex sending_buffer_mutex;
 
   std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived;
   std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected;

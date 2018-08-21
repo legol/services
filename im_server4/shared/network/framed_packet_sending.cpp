@@ -6,7 +6,7 @@ FramedPacketSending::FramedPacketSending() {
   reset();
 }
 
-FramedPacketSending::reset() {
+void FramedPacketSending::reset() {
   header_bytes_sent = 0;
   body_bytes_sent = 0;
 }
@@ -27,12 +27,28 @@ uint32_t FramedPacketSending::bytesToSendFromBody() {
   return header.body_length - body_bytes_sent;
 }
 
+uint32_t FramedPacketSending::bytesToSend() {
+  if (!headerSent()) {
+    return bytesToSendFromHeader();
+  } else {
+    return bytesToSendFromBody();
+  }
+}
+
 uint8_t* FramedPacketSending::remainingHeaderPointer() {
   return ((uint8_t*)(&header)) + header_bytes_sent;
 }
 
 uint8_t* FramedPacketSending::remainingBodyPointer() {
   return body.get() + body_bytes_sent;
+}
+
+uint8_t* FramedPacketSending::remainingPointer() {
+  if (!headerSent()) {
+    return remainingHeaderPointer();
+  } else {
+    return remainingBodyPointer();
+  }
 }
 
 int32_t FramedPacketSending::updateBytesSent(uint32_t bytes_sent) {
@@ -47,6 +63,8 @@ int32_t FramedPacketSending::updateBytesSent(uint32_t bytes_sent) {
       bytes_sent -= bytes_into_body;
     }
   }
+
+  return 0;
 }
 
 
@@ -57,6 +75,13 @@ int32_t FramedPacketSendingQ::pushPacket(
     std::shared_ptr<FramedPacketSending> packet) {
   std::lock_guard<std::mutex> lock(sending_buffer_mutex);
   sending_buffer.push_back(packet);
+
+  return 0;
+}
+
+void FramedPacketSendingQ::popPacket() {
+  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+  sending_buffer.pop_front();
 }
 
 bool FramedPacketSendingQ::empty() {

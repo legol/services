@@ -1,3 +1,5 @@
+#pragma once
+
 #include "framed_transport.h"
 #include <cstring>
 #include <sys/socket.h>

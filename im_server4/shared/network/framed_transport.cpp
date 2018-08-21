@@ -1,5 +1,6 @@
 #include "framed_transport.h"
 #include "framed_packet_receiving.h"
+#include "framed_packet_sending.h"
 #include <cstring>
 #include <sys/socket.h>
 
@@ -42,7 +43,7 @@ int32_t FramedTransport::readFromSocket(int32_t fd) {
     auto process_result = forgeFrames(receiving_packet, (uint8_t *)buffer,
                                       bytes_received, full_packet_received);
     if (full_packet_received) {
-      receiving_buffer.remove(itrReceiving);
+      receiving_buffer.erase(itrReceiving);
     }
     if (process_result != 0) {
       return process_result;
@@ -60,36 +61,31 @@ int32_t FramedTransport::sendToSocket(int32_t fd) {
     return 0;
   }
 
-  shared_ptr<FramedPacketSendingQ> sending_q = itrQ->second;
-
+  auto sending_q = itrQ->second;
   while (!(sending_q->empty())) {
     auto sending_packet = sending_q->topPacket();
-
-    int32_t bytes_sent = 0;
-    if (!(sending_packet->headerSent())) {
-      bytes_sent = send(fd, sending_packet->remainingHeaderPointer(),
-                        sending_packet->bytesToSendFromHeader(), 0);
-    } else {
-      bytes_sent = send(fd, sending_packet->remainingBodyPointer(),
-                        sending_packet->bytesToSendFromBody(), 0);
-    }
+    auto bytes_sent = send(fd, sending_packet->remainingPointer(),
+                        sending_packet->bytesToSend(), 0);
 
     if (bytes_sent == -1) {
       if ((EAGAIN == errno) || (EINTR == errno)) {
-        // do nothing
+        // do nothing, wait for EPOLLOUT
+        return 0;
       } else {
         // real error
+        return -1;
       }
     } else {
       // sent something.
       sending_packet->updateBytesSent(bytes_sent);
 
       if (sending_packet->allSent()) {
-        sending_q->pop_front();
+        sending_q->popPacket();
       }
     }
   }
 
+  sending_buffer.erase(itrQ);
   return 0;
 }
 
@@ -148,15 +144,18 @@ void FramedTransport::connectionClosed(int32_t fd) {
   onDisconnected(fd);
 }
 
-int32_t FramedTransport::sendPacket(int32_t fd,
-                                    shared_ptr<FramedPacketSending> packet) {
+int32_t
+FramedTransport::sendPacket(int32_t fd,
+                            std::shared_ptr<FramedPacketSending> packet) {
+  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+
   auto itrQ = sending_buffer.find(fd);
   if (itrQ == sending_buffer.end()) {
     sending_buffer[fd] =
-        std::make_shared<FramedPacketSendingQ>(new FramedPacketSendingQ());
+        std::shared_ptr<FramedPacketSendingQ>(new FramedPacketSendingQ());
     itrQ = sending_buffer.find(fd);
   }
 
   itrQ->second->pushPacket(packet);
-  return 0;
+  return sendToSocket(fd);
 }
