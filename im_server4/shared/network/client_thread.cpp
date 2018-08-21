@@ -94,7 +94,7 @@ int32_t ClientThread::startAndJoin() {
 }
 
 int32_t ClientThread::onRead() {
-  if (transport->readSocket(fd) != 0) {
+  if (transport->readFromSocket(fd) != 0) {
     closeConnection();
     return -1;
   }
@@ -103,7 +103,11 @@ int32_t ClientThread::onRead() {
 }
 
 int32_t ClientThread::onWrite() {
-  // transport_write
+  if (transport->sendToSocket(fd) != 0) {
+    closeConnection();
+    return -1;
+  }
+
   return 0;
 }
 

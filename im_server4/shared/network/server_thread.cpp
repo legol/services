@@ -99,7 +99,7 @@ int32_t ServerThread::onRead(int32_t fd) {
       closeConnection(new_socket);
     }
   } else {
-    if (0 != transport->readSocket(fd)) {
+    if (transport->readFromSocket(fd) != 0) {
       closeConnection(fd);
     }
   }
@@ -107,7 +107,9 @@ int32_t ServerThread::onRead(int32_t fd) {
 }
 
 int32_t ServerThread::onWrite(int32_t fd) {
-  // transport_write
+  if (transport->sendToSocket(fd) != 0) {
+    closeConnection(fd);
+  }
   return 0;
 }
 

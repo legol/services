@@ -25,7 +25,8 @@ public:
   std::shared_ptr<uint8_t> body;
 };
 
-class FramedPacketInternal;
+class FramedPacketReceiving;
+class FramedPacketSending;
 
 class FramedTransport : public ITransport {
 public:
@@ -34,16 +35,18 @@ public:
          std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected,
          std::function<void(int32_t fd)> onDisconnected);
 
-  virtual int32_t readSocket(int32_t fd) override;
+  virtual int32_t readFromSocket(int32_t fd) override;
+  virtual int32_t sendToSocket(int32_t fd) override;
+
   virtual int32_t newConnection(int32_t fd, sockaddr_in &addr) override;
   virtual void connectionClosed(int32_t fd) override;
 
 private:
-  int32_t forgeFrames(std::shared_ptr<FramedPacketInternal> receiving_packet,
+  int32_t forgeFrames(std::shared_ptr<FramedPacketReceiving> receiving_packet,
                       uint8_t *received, uint32_t bytes_received);
 
 private:
-  std::map<int32_t, std::shared_ptr<FramedPacketInternal>> receiving_buffer;
+  std::map<int32_t, std::shared_ptr<FramedPacketReceiving>> receiving_buffer;
 
   std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived;
   std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected;

@@ -1,72 +1,7 @@
 #include "framed_transport.h"
+#include "framed_packet_receiving.h"
 #include <cstring>
 #include <sys/socket.h>
-
-class FramedPacketInternal : public FramedPacket {
-public:
-  FramedPacketInternal() { reset(); }
-
-  void reset() {
-    header_bytes_read = 0;
-    body_bytes_read = 0;
-
-    header = {0};
-    body.reset();
-  }
-
-  bool completed() {
-    return (header_bytes_read == sizeof(FramedPacketHeader) &&
-            body_bytes_read == header.body_length);
-  }
-
-  int32_t appendToHeader(uint8_t *buffer, uint32_t bytes_to_append) {
-    if (bytes_to_append + header_bytes_read > sizeof(FramedPacketHeader)) {
-      return -1;
-    }
-
-    memcpy((uint8_t *)(&header) + header_bytes_read, buffer, bytes_to_append);
-    header_bytes_read += bytes_to_append;
-
-    if (header_bytes_read == sizeof(FramedPacketHeader)) {
-      body = std::shared_ptr<uint8_t>(new uint8_t[header.body_length]);
-    }
-
-    return 0;
-  }
-
-  int32_t appendToBody(uint8_t *buffer, uint32_t bytes_to_append) {
-    if (!headerCompleted()) {
-      return -1;
-    }
-
-    if (bytes_to_append + body_bytes_read > header.body_length) {
-      return -1;
-    }
-
-    memcpy(body.get() + body_bytes_read, buffer, bytes_to_append);
-    body_bytes_read += bytes_to_append;
-
-    return 0;
-  }
-
-  bool headerCompleted() {
-    return header_bytes_read == sizeof(FramedPacketHeader);
-  }
-
-  uint32_t bytesToReadIntoHeader() {
-    return sizeof(FramedPacketHeader) - header_bytes_read;
-  }
-
-  uint32_t bytesToReadIntoBody() {
-    return header.body_length - body_bytes_read;
-  }
-
-private:
-  uint32_t header_bytes_read;
-  uint32_t body_bytes_read;
-};
-
-////////////////////////////////////////////////////////////////////////////////
 
 std::shared_ptr<ITransport> FramedTransport::create(
     std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived,
@@ -80,7 +15,7 @@ std::shared_ptr<ITransport> FramedTransport::create(
   return instance;
 }
 
-int32_t FramedTransport::readSocket(int32_t fd) {
+int32_t FramedTransport::readFromSocket(int32_t fd) {
   const uint32_t buffer_len = 1024 * 1024; // 1M bytes
   uint8_t buffer[buffer_len] = {0};
 
@@ -98,13 +33,17 @@ int32_t FramedTransport::readSocket(int32_t fd) {
     auto itrReceiving = receiving_buffer.find(fd);
     if (itrReceiving == receiving_buffer.end()) {
       receiving_buffer[fd] =
-          std::shared_ptr<FramedPacketInternal>(new FramedPacketInternal());
+          std::shared_ptr<FramedPacketReceiving>(new FramedPacketReceiving());
       receiving_buffer.find(fd);
     }
 
+    bool full_packet_received = false;
     auto receiving_packet = itrReceiving->second;
-    auto process_result =
-        forgeFrames(receiving_packet, (uint8_t *)buffer, bytes_received);
+    auto process_result = forgeFrames(receiving_packet, (uint8_t *)buffer,
+                                      bytes_received, full_packet_received);
+    if (full_packet_received) {
+      receiving_buffer.remove(itrReceiving);
+    }
     if (process_result != 0) {
       return process_result;
     }
@@ -113,9 +52,52 @@ int32_t FramedTransport::readSocket(int32_t fd) {
   return 0;
 }
 
+int32_t FramedTransport::sendToSocket(int32_t fd) {
+  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+
+  auto itrQ = sending_buffer.find(fd);
+  if (itrQ == sending_buffer.end()) {
+    return 0;
+  }
+
+  shared_ptr<FramedPacketSendingQ> sending_q = itrQ->second;
+
+  while (!(sending_q->empty())) {
+    auto sending_packet = sending_q->topPacket();
+
+    int32_t bytes_sent = 0;
+    if (!(sending_packet->headerSent())) {
+      bytes_sent = send(fd, sending_packet->remainingHeaderPointer(),
+                        sending_packet->bytesToSendFromHeader(), 0);
+    } else {
+      bytes_sent = send(fd, sending_packet->remainingBodyPointer(),
+                        sending_packet->bytesToSendFromBody(), 0);
+    }
+
+    if (bytes_sent == -1) {
+      if ((EAGAIN == errno) || (EINTR == errno)) {
+        // do nothing
+      } else {
+        // real error
+      }
+    } else {
+      // sent something.
+      sending_packet->updateBytesSent(bytes_sent);
+
+      if (sending_packet->allSent()) {
+        sending_q->pop_front();
+      }
+    }
+  }
+
+  return 0;
+}
+
 int32_t FramedTransport::forgeFrames(
-    std::shared_ptr<FramedPacketInternal> receiving_packet, uint8_t *received,
-    uint32_t bytes_received) {
+    std::shared_ptr<FramedPacketReceiving> receiving_packet, uint8_t *received,
+    uint32_t bytes_received, bool &full_packet_received) {
+  full_packet_received = false;
+
   if (receiving_packet.get() == nullptr) {
     return -1;
   }
@@ -138,6 +120,7 @@ int32_t FramedTransport::forgeFrames(
         auto received_packet =
             std::dynamic_pointer_cast<FramedPacket>(receiving_packet);
         auto process_result = onPacketReceived(received_packet);
+        full_packet_received = true;
         if (process_result != 0) {
           return process_result;
         }
@@ -163,4 +146,17 @@ int32_t FramedTransport::newConnection(int32_t fd, sockaddr_in &addr) {
 
 void FramedTransport::connectionClosed(int32_t fd) {
   onDisconnected(fd);
+}
+
+int32_t FramedTransport::sendPacket(int32_t fd,
+                                    shared_ptr<FramedPacketSending> packet) {
+  auto itrQ = sending_buffer.find(fd);
+  if (itrQ == sending_buffer.end()) {
+    sending_buffer[fd] =
+        std::make_shared<FramedPacketSendingQ>(new FramedPacketSendingQ());
+    itrQ = sending_buffer.find(fd);
+  }
+
+  itrQ->second->pushPacket(packet);
+  return 0;
 }
