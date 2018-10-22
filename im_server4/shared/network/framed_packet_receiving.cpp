@@ -1,5 +1,6 @@
 #include "framed_packet_receiving.h"
 #include <cstring>
+#include <mutex>
 #include <sys/socket.h>
 
 FramedPacketReceiving::FramedPacketReceiving() { reset(); }
@@ -13,7 +14,7 @@ void FramedPacketReceiving::reset() {
 }
 
 bool FramedPacketReceiving::completed() {
-  return (headerCompleted() && body_bytes_read == header.body_length);
+  return (headerCompleted() && body_bytes_read == header.body_len);
 }
 
 int32_t FramedPacketReceiving::appendToHeader(uint8_t *buffer,
@@ -26,7 +27,20 @@ int32_t FramedPacketReceiving::appendToHeader(uint8_t *buffer,
   header_bytes_read += bytes_to_append;
 
   if (header_bytes_read == sizeof(FramedPacketHeader)) {
-    body = std::shared_ptr<uint8_t>(new uint8_t[header.body_length]);
+    body = std::shared_ptr<uint8_t>(new uint8_t[header.body_len]);
+  }
+
+  return 0;
+}
+
+int32_t FramedPacketReceiving::allocBody() {
+  if (!headerCompleted()) {
+    return -1;
+  }
+
+  body = std::shared_ptr<uint8_t>(new uint8_t[header.body_len]);
+  if (body.get() == nullptr) {
+    return -1;
   }
 
   return 0;
@@ -38,7 +52,7 @@ int32_t FramedPacketReceiving::appendToBody(uint8_t *buffer,
     return -1;
   }
 
-  if (bytes_to_append + body_bytes_read > header.body_length) {
+  if (bytes_to_append + body_bytes_read > header.body_len) {
     return -1;
   }
 
@@ -57,5 +71,5 @@ uint32_t FramedPacketReceiving::bytesToReadIntoHeader() {
 }
 
 uint32_t FramedPacketReceiving::bytesToReadIntoBody() {
-  return header.body_length - body_bytes_read;
+  return header.body_len - body_bytes_read;
 }

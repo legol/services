@@ -35,7 +35,7 @@ int32_t FramedTransport::readFromSocket(int32_t fd) {
     if (itrReceiving == receiving_buffer.end()) {
       receiving_buffer[fd] =
           std::shared_ptr<FramedPacketReceiving>(new FramedPacketReceiving());
-      receiving_buffer.find(fd);
+      itrReceiving = receiving_buffer.find(fd);
     }
 
     bool full_packet_received = false;
@@ -54,7 +54,7 @@ int32_t FramedTransport::readFromSocket(int32_t fd) {
 }
 
 int32_t FramedTransport::sendToSocket(int32_t fd) {
-  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+  std::scoped_lock<std::recursive_mutex> lock(sending_buffer_mutex);
 
   auto itrQ = sending_buffer.find(fd);
   if (itrQ == sending_buffer.end()) {
@@ -109,6 +109,11 @@ int32_t FramedTransport::forgeFrames(
           received + bytes_consumed,
           std::min(bytes_to_read_into_header, bytes_left));
       bytes_consumed += std::min(bytes_to_read_into_header, bytes_left);
+
+      if (receiving_packet->headerCompleted()) {
+        // alloc memory for body
+        receiving_packet->allocBody();
+      }
     } else {
       // forge body
       if (receiving_packet->completed()) {
@@ -133,6 +138,18 @@ int32_t FramedTransport::forgeFrames(
     }
   }
 
+  if (receiving_packet->completed()) {
+    // a completed packet received
+    auto received_packet =
+        std::dynamic_pointer_cast<FramedPacket>(receiving_packet);
+    auto process_result = onPacketReceived(received_packet);
+    full_packet_received = true;
+    if (process_result != 0) {
+      return process_result;
+    }
+    receiving_packet.reset();
+  }
+
   return 0;
 }
 
@@ -145,9 +162,9 @@ void FramedTransport::connectionClosed(int32_t fd) {
 }
 
 int32_t
-FramedTransport::sendPacket(int32_t fd,
+FramedTransport::sendFramedPacket(int32_t fd,
                             std::shared_ptr<FramedPacketSending> packet) {
-  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+  std::scoped_lock<std::recursive_mutex> lock(sending_buffer_mutex);
 
   auto itrQ = sending_buffer.find(fd);
   if (itrQ == sending_buffer.end()) {
@@ -158,4 +175,10 @@ FramedTransport::sendPacket(int32_t fd,
 
   itrQ->second->pushPacket(packet);
   return sendToSocket(fd);
+}
+
+int32_t FramedTransport::sendPacket(int32_t fd, std::shared_ptr<uint8_t> packet,
+                           uint32_t packentLen) {
+  auto framedPacket = std::make_shared<FramedPacketSending>(packet, packentLen);
+  return sendFramedPacket(fd, framedPacket);
 }

@@ -25,6 +25,11 @@ class TestServer {
 public:
   int32_t onPacketReceived(std::shared_ptr<FramedPacket> packet) {
     printf("%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
+
+    std::string payload(packet->body.get(),
+                        packet->body.get() + packet->header.body_len);
+    printf("header len:%d payload:%s\n", packet->header.body_len,
+           payload.c_str());
     return 0;
   }
 

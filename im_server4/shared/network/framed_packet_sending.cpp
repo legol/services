@@ -2,7 +2,9 @@
 #include <cstring>
 #include <sys/socket.h>
 
-FramedPacketSending::FramedPacketSending() {
+FramedPacketSending::FramedPacketSending(std::shared_ptr<uint8_t> _body,
+                                         uint32_t bodyLen)
+    : FramedPacket(_body, bodyLen) {
   reset();
 }
 
@@ -16,7 +18,7 @@ bool FramedPacketSending::headerSent() {
 }
 
 bool FramedPacketSending::allSent() {
-  return headerSent() && body_bytes_sent == header.body_length;
+  return headerSent() && body_bytes_sent == header.body_len;
 }
 
 uint32_t FramedPacketSending::bytesToSendFromHeader() {
@@ -24,7 +26,7 @@ uint32_t FramedPacketSending::bytesToSendFromHeader() {
 }
 
 uint32_t FramedPacketSending::bytesToSendFromBody() {
-  return header.body_length - body_bytes_sent;
+  return header.body_len - body_bytes_sent;
 }
 
 uint32_t FramedPacketSending::bytesToSend() {
@@ -69,28 +71,28 @@ int32_t FramedPacketSending::updateBytesSent(uint32_t bytes_sent) {
 
 
 ////////////////////////////////////////////////////////////////////////////////
-FramedPacketSendingQ::FramedPacketSendingQ() {}
+FramedPacketSendingQ::FramedPacketSendingQ(){}
 
 int32_t FramedPacketSendingQ::pushPacket(
     std::shared_ptr<FramedPacketSending> packet) {
-  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+  std::scoped_lock<std::recursive_mutex> lock(sending_buffer_mutex);
   sending_buffer.push_back(packet);
 
   return 0;
 }
 
 void FramedPacketSendingQ::popPacket() {
-  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+  std::scoped_lock<std::recursive_mutex> lock(sending_buffer_mutex);
   sending_buffer.pop_front();
 }
 
 bool FramedPacketSendingQ::empty() {
-  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+  std::scoped_lock<std::recursive_mutex> lock(sending_buffer_mutex);
   return sending_buffer.empty();
 }
 
 std::shared_ptr<FramedPacketSending> FramedPacketSendingQ::topPacket() {
-  std::lock_guard<std::mutex> lock(sending_buffer_mutex);
+  std::scoped_lock<std::recursive_mutex> lock(sending_buffer_mutex);
 
   if (sending_buffer.empty()) {
     return std::shared_ptr<FramedPacketSending>(nullptr);
