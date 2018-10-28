@@ -4,6 +4,7 @@ MODULE_NAME=im_server
 BINDIR=./output
 TARGET=apps/server
 TARGET1=apps/test_client
+TARGET_TEST=__tests__/test
 INCLUDE_PATH=./include
 LIBRARY_PATH=./lib
 SHARED=shared
@@ -20,9 +21,10 @@ DT=g++ -std=c++17 -std=gnu++17 -g -Wall -o $@ $^
 AR = ar r
 RANLIB = ranlib
 
-release:sub_dir static_lib clrtarget $(TARGET) $(TARGET1)
+release:sub_dir static_lib clrtarget $(TARGET) $(TARGET1) $(TARGET_TEST)
 	cp $(TARGET) $(BINDIR)
 	cp $(TARGET1) $(BINDIR)
+	cp $(TARGET_TEST) $(BINDIR)
 
 sub_dir: dir
 #   -@mkdir include
@@ -43,6 +45,7 @@ static_lib:
 clrtarget:
 	-@rm -rf $(TARGET)
 	-@rm -rf $(TARGET1)
+	-@rm -rf $(TARGET_TEST)
 
 OBJS_APPS_SERVER = apps/server.o
 apps/server:$(OBJS_APPS_SERVER)
@@ -53,6 +56,12 @@ OBJS_APPS_TEST_CLIENT = apps/test_client.o
 apps/test_client:$(OBJS_APPS_TEST_CLIENT)
 	$(DT) $(LIB)
 	@echo ""
+
+OBJS_TEST = __tests__/test.o
+__tests__/test:$(OBJS_TEST)
+	$(DT) $(LIB) /usr/lib/libgtest.a 
+	@echo ""
+
 
 %.o:%.cpp
 	$(DC) $(INC)
@@ -83,4 +92,6 @@ clean: dir
 	-@rm -rf  *.o
 	-@rm -rf  apps/*.o
 	-@rm -rf $(TARGET)
+	-@rm -rf $(TARGET1)
+	-@rm -rf $(TARGET_TEST)
 	-@rm -rf output/*
