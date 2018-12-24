@@ -2,6 +2,7 @@ client
 test server read
 write some real logic in client and server to test packet receiving/sending
 use gtest to test server and client
+  test a client to send packet to echo server
   server/client gracefully exit
   separate startAndJoin to start() and join()
   add exit()

@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 
 std::shared_ptr<ITransport> FramedTransport::create(
-    std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived,
+    std::function<int32_t(int32_t fd, std::shared_ptr<FramedPacket>)> onPacketReceived,
     std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected,
     std::function<void(int32_t fd)> onDisconnected) {
   auto instance = std::shared_ptr<FramedTransport>(new FramedTransport());
@@ -40,7 +40,7 @@ int32_t FramedTransport::readFromSocket(int32_t fd) {
 
     bool full_packet_received = false;
     auto receiving_packet = itrReceiving->second;
-    auto process_result = forgeFrames(receiving_packet, (uint8_t *)buffer,
+    auto process_result = forgeFrames(fd, receiving_packet, (uint8_t *)buffer,
                                       bytes_received, full_packet_received);
     if (full_packet_received) {
       receiving_buffer.erase(itrReceiving);
@@ -90,6 +90,7 @@ int32_t FramedTransport::sendToSocket(int32_t fd) {
 }
 
 int32_t FramedTransport::forgeFrames(
+    int32_t fd,
     std::shared_ptr<FramedPacketReceiving> receiving_packet, uint8_t *received,
     uint32_t bytes_received, bool &full_packet_received) {
   full_packet_received = false;
@@ -120,7 +121,7 @@ int32_t FramedTransport::forgeFrames(
         // a completed packet received
         auto received_packet =
             std::dynamic_pointer_cast<FramedPacket>(receiving_packet);
-        auto process_result = onPacketReceived(received_packet);
+        auto process_result = onPacketReceived(fd, received_packet);
         full_packet_received = true;
         if (process_result != 0) {
           return process_result;
@@ -142,7 +143,7 @@ int32_t FramedTransport::forgeFrames(
     // a completed packet received
     auto received_packet =
         std::dynamic_pointer_cast<FramedPacket>(receiving_packet);
-    auto process_result = onPacketReceived(received_packet);
+    auto process_result = onPacketReceived(fd, received_packet);
     full_packet_received = true;
     if (process_result != 0) {
       return process_result;

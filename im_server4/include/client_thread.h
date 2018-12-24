@@ -14,14 +14,17 @@ public:
   static std::shared_ptr<ClientThread>
   create(std::string _server_ip, int32_t _server_port, std::shared_ptr<ITransport> trasport);
   int32_t startAndJoin(); // will start a thread to run clientLoop()
+  int32_t start(); // will start a thread to run clientLoop() but will not block current thread
 
+  int32_t connectToServer();
   void closeConnection();
+
+  void terminate(); // gracefully exit
 
 private:
   ClientThread();
 
   static void setNonBlocking(int32_t fd);
-  int32_t connectToServer();
 
   int32_t onRead();
   int32_t onWrite();
@@ -36,4 +39,6 @@ private:
   int32_t fd;
   std::shared_ptr<EpollEvent> epoll_event;
   std::shared_ptr<ITransport> transport;
+
+  std::shared_ptr<std::thread> thread_;
 };

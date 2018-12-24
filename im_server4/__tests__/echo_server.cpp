@@ -11,15 +11,22 @@
 
 using namespace std::placeholders;
 
-class TestServer {
+class EchoServer {
 public:
-  int32_t onPacketReceived(std::shared_ptr<FramedPacket> packet) {
+  int32_t onPacketReceived(int32_t fd, std::shared_ptr<FramedPacket> packet) {
     printf("%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
 
     std::string payload(packet->body.get(),
                         packet->body.get() + packet->header.body_len);
     printf("header len:%d payload:%s\n", packet->header.body_len,
            payload.c_str());
+
+    std::string echoPayload = payload;
+    std::shared_ptr<uint8_t> echoPacket =
+        std::shared_ptr<uint8_t>(new uint8_t[echoPayload.length()]);
+    memcpy(echoPacket.get(), echoPayload.c_str(), echoPayload.length());
+    transport_->sendPacket(fd, echoPacket, echoPayload.length());
+
     return 0;
   }
 
@@ -31,23 +38,25 @@ public:
   void onDisconnected(int32_t fd) {
     printf("%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
   }
+
+  void run() {
+    transport_ = FramedTransport::create(
+        std::bind(&EchoServer::onPacketReceived, this, _1, _2),
+        std::bind(&EchoServer::onConnected, this, _1, _2),
+        std::bind(&EchoServer::onDisconnected, this, _1));
+
+    std::shared_ptr<ServerThread> serverThread =
+        ServerThread::create("192.168.101.64", 22334, transport_);
+
+    serverThread->startAndJoin();
+  }
+
+
+protected:
+  std::shared_ptr<ITransport> transport_;
 };
 
-TEST(TestServer, testConnect) {
-  TestServer server;
-  std::shared_ptr<ITransport> framedTransport = FramedTransport::create(
-      std::bind(&TestServer::onPacketReceived, &server, _1),
-      std::bind(&TestServer::onConnected, &server, _1, _2),
-      std::bind(&TestServer::onDisconnected, &server, _1));
-
-
-  std::shared_ptr<ServerThread> serverThread =
-      ServerThread::create("192.168.101.116", 22334, framedTransport);
-
-  serverThread->startAndJoin();
-}
-
 int main(int argc, char **argv) {
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+  EchoServer server;
+  server.run();
 }

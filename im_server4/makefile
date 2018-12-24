@@ -5,11 +5,17 @@ BINDIR=./output
 TARGET=apps/server
 TARGET1=apps/test_client
 TARGET_TEST=__tests__/test
+TARGET_TEST1=__tests__/echo_server
 INCLUDE_PATH=./include
 LIBRARY_PATH=./lib
 SHARED=shared
 
-INC=-I$(INCLUDE_PATH) -I./
+GTEST_LIB=/home/ubuntu/git_root/googletest/lib
+GMOCK_LIB=/home/ubuntu/git_root/googletest/lib
+GTEST_INC=/home/ubuntu/git_root/googletest/googletest/include
+GMOCK_INC=/home/ubuntu/git_root/googletest/googlemock/include
+
+INC=-I$(INCLUDE_PATH) -I./ -I$(GTEST_INC) -I$(GMOCK_INC)
 LIB=-L$(LIBRARY_PATH) -lrt -lcrypto -ldl -lz $(LIBRARY_PATH)/*.o -lboost_thread -lboost_regex -lboost_system -lpthread
 
 #DC=g++ -g -Wall -DBUILD_TIME="$(BUILD_TIME)"  -DPROJECT_VERSION="$(PROJECT_BUILD_VERSION)" -DMODULE_VERSION="$(MODULE_BUILD_VERSION)" -DTAG_VERSION="$(TAG_LAST)" -o $@ -c $<
@@ -21,10 +27,11 @@ DT=g++ -std=c++17 -std=gnu++17 -g -Wall -o $@ $^
 AR = ar r
 RANLIB = ranlib
 
-release:sub_dir static_lib clrtarget $(TARGET) $(TARGET1) $(TARGET_TEST)
+release:sub_dir static_lib clrtarget $(TARGET) $(TARGET1) $(TARGET_TEST) $(TARGET_TEST1)
 	cp $(TARGET) $(BINDIR)
 	cp $(TARGET1) $(BINDIR)
 	cp $(TARGET_TEST) $(BINDIR)
+	cp $(TARGET_TEST1) $(BINDIR)
 
 sub_dir: dir
 #   -@mkdir include
@@ -46,6 +53,7 @@ clrtarget:
 	-@rm -rf $(TARGET)
 	-@rm -rf $(TARGET1)
 	-@rm -rf $(TARGET_TEST)
+	-@rm -rf $(TARGET_TEST1)
 
 OBJS_APPS_SERVER = apps/server.o
 apps/server:$(OBJS_APPS_SERVER)
@@ -59,9 +67,13 @@ apps/test_client:$(OBJS_APPS_TEST_CLIENT)
 
 OBJS_TEST = __tests__/test.o
 __tests__/test:$(OBJS_TEST)
-	$(DT) $(LIB) /usr/lib/libgtest.a 
+	$(DT) $(LIB) $(GTEST_LIB)/libgtest.a $(GMOCK_LIB)/libgmock.a
 	@echo ""
 
+OBJS_TEST1 = __tests__/echo_server.o
+__tests__/echo_server:$(OBJS_TEST1)
+	$(DT) $(LIB)
+	@echo ""
 
 %.o:%.cpp
 	$(DC) $(INC)
@@ -94,4 +106,5 @@ clean: dir
 	-@rm -rf $(TARGET)
 	-@rm -rf $(TARGET1)
 	-@rm -rf $(TARGET_TEST)
+	-@rm -rf $(TARGET_TEST1)
 	-@rm -rf output/*

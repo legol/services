@@ -45,7 +45,8 @@ class ClientThread;
 class FramedTransport : public ITransport {
 public:
   static std::shared_ptr<ITransport>
-  create(std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived,
+  create(std::function<int32_t(int32_t fd, std::shared_ptr<FramedPacket>)>
+             onPacketReceived,
          std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected,
          std::function<void(int32_t fd)> onDisconnected);
 
@@ -64,7 +65,8 @@ protected:
                    std::shared_ptr<FramedPacketSending> packet) override;
 
 private:
-  int32_t forgeFrames(std::shared_ptr<FramedPacketReceiving> receiving_packet,
+  int32_t forgeFrames(int32_t fd,
+                      std::shared_ptr<FramedPacketReceiving> receiving_packet,
                       uint8_t *received, uint32_t bytes_received,
                       bool &full_packet_received);
 
@@ -74,8 +76,8 @@ private:
   std::map<int32_t, std::shared_ptr<FramedPacketSendingQ>> sending_buffer;
   std::recursive_mutex sending_buffer_mutex;
 
-  std::function<int32_t(std::shared_ptr<FramedPacket>)> onPacketReceived;
+  std::function<int32_t(int32_t fd, std::shared_ptr<FramedPacket>)>
+      onPacketReceived;
   std::function<int32_t(int32_t fd, sockaddr_in &addr)> onConnected;
   std::function<void(int32_t fd)> onDisconnected;
-
 };

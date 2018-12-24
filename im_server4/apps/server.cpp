@@ -6,7 +6,7 @@
 #include "server_thread.h"
 
 // Use functions as callback
-// int32_t onPacketReceived(std::shared_ptr<FramedPacket> packet) {
+// int32_t onPacketReceived(int32_t fd, std::shared_ptr<FramedPacket> packet) {
 //   printf("%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
 //   return 0;
 // }
@@ -23,7 +23,7 @@
 // Use class method as callback:
 class TestServer {
 public:
-  int32_t onPacketReceived(std::shared_ptr<FramedPacket> packet) {
+  int32_t onPacketReceived(int32_t fd, std::shared_ptr<FramedPacket> packet) {
     printf("%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
 
     std::string payload(packet->body.get(),
@@ -56,7 +56,7 @@ int main()
   // Use class method as callback
   TestServer server;
   std::shared_ptr<ITransport> framedTransport = FramedTransport::create(
-      std::bind(&TestServer::onPacketReceived, &server, _1),
+      std::bind(&TestServer::onPacketReceived, &server, _1, _2),
       std::bind(&TestServer::onConnected, &server, _1, _2),
       std::bind(&TestServer::onDisconnected, &server, _1));
 

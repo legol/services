@@ -3,7 +3,9 @@
 #define MAX_NUM_EPOLL_EVENTS 1024
 #define EPOLL_WAIT_TIMEOUT_MS 50
 
-EpollEvent::EpollEvent(int32_t _epoll_fd) : epoll_fd(_epoll_fd) {}
+EpollEvent::EpollEvent(int32_t _epoll_fd) : epoll_fd(_epoll_fd) {
+  terminate_ = false;
+}
 
 EpollEvent::~EpollEvent(void) {}
 
@@ -53,7 +55,7 @@ void EpollEvent::epollWaitLoop() {
 
   ::epoll_event events[MAX_NUM_EPOLL_EVENTS];
 
-  while (true) {
+  while (!terminate_) {
     // pEpollEventCallback->OnEpollOut( curr_fd, this ); // itrCallback->second
     // might be freed here, so I retain it as pEpollEventCallback.
 
@@ -94,4 +96,8 @@ void EpollEvent::epollWaitLoop() {
       }
     }
   }
+}
+
+void EpollEvent::terminate() {
+  terminate_ = true;
 }

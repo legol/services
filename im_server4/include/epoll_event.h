@@ -11,6 +11,10 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unordered_map>
+#include <atomic>
+
+class ServerThread;
+class ClientThread;
 
 class EpollCallbacks {
 public:
@@ -26,8 +30,12 @@ public:
 };
 
 class EpollEvent {
+ friend class ServerThread;
+ friend class ClientThread;
+
 public:
   virtual ~EpollEvent(void);
+
   static std::shared_ptr<EpollEvent> create();
   int32_t registerSocket(int32_t fd, uint32_t event,
                          std::function<int32_t(int32_t)> onRead,
@@ -35,6 +43,9 @@ public:
                          std::function<int32_t(int32_t)> onError);
   int32_t unregisterSocket(const int32_t fd);
 
+  void terminate();
+
+protected:
   void epollWaitLoop();
 
 private:
@@ -44,6 +55,7 @@ private:
   int32_t epoll_fd;
   std::unordered_map<int32_t, std::shared_ptr<EpollCallbacks>> callbacks;
   std::mutex callbacks_mutex;
+  std::atomic<bool> terminate_;
 };
 
 #endif

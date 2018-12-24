@@ -73,7 +73,7 @@ int32_t ClientThread::connectToServer() {
   return 0;
 }
 
-int32_t ClientThread::startAndJoin() {
+int32_t ClientThread::start() {
   if (connectToServer() != 0) {
       return -1;
   }
@@ -87,9 +87,16 @@ int32_t ClientThread::startAndJoin() {
     return -1;
   }
 
-  std::thread thread(std::bind(&EpollEvent::epollWaitLoop, epoll_event.get()));
-  thread.join();
+  thread_ = std::make_shared<std::thread>(
+      std::thread(std::bind(&EpollEvent::epollWaitLoop, epoll_event.get())));
 
+  return 0;
+}
+
+
+int32_t ClientThread::startAndJoin() {
+  start();
+  thread_->join();
   return 0;
 }
 
@@ -125,4 +132,13 @@ void ClientThread::closeConnection() {
   onDisconnected(fd);
   epoll_event->unregisterSocket(fd);
   close(fd);
+}
+
+void ClientThread::terminate() {
+  epoll_event->terminate();
+
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(1s);
+
+  thread_->join();
 }

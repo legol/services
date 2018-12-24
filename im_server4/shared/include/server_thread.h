@@ -14,6 +14,9 @@ public:
   static std::shared_ptr<ServerThread>
   create(std::string ip, int32_t port, std::shared_ptr<ITransport> trasport);
   int32_t startAndJoin(); // will start a thread to run serverLoop()
+  int32_t start(); // will start a thread to run clientLoop() but will not block current thread
+
+  void terminate(); // gracefully exit
 
 private:
   ServerThread();
@@ -34,4 +37,6 @@ private:
   int32_t listen_socket;
   std::shared_ptr<EpollEvent> epoll_event;
   std::shared_ptr<ITransport> transport;
+
+  std::shared_ptr<std::thread> thread_;
 };

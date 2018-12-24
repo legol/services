@@ -8,7 +8,7 @@
 #include "client_thread.h"
 
 // Use functions as callback:
-// int32_t onPacketReceived(std::shared_ptr<FramedPacket> packet) {
+// int32_t onPacketReceived(int32_t fd, std::shared_ptr<FramedPacket> packet) {
 //   return 0;
 // }
 //
@@ -24,8 +24,14 @@
 // Use class method as callback:
 class TestClient {
 public:
-  int32_t onPacketReceived(std::shared_ptr<FramedPacket> packet) {
+  int32_t onPacketReceived(int32_t fd, std::shared_ptr<FramedPacket> packet) {
     printf("%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
+
+    std::string payload(packet->body.get(),
+                        packet->body.get() + packet->header.body_len);
+    printf("header len:%d payload:%s\n", packet->header.body_len,
+           payload.c_str());
+
     return 0;
   }
 
@@ -74,14 +80,14 @@ int main() {
   // Use class method as callback:
   TestClient client;
   std::shared_ptr<ITransport> framedTransport = FramedTransport::create(
-      std::bind(&TestClient::onPacketReceived, &client, _1),
+      std::bind(&TestClient::onPacketReceived, &client, _1, _2),
       std::bind(&TestClient::onConnected, &client, _1, _2),
       std::bind(&TestClient::onDisconnected, &client, _1));
 
   client.setTransport(framedTransport);
 
   std::shared_ptr<ClientThread> clientThread =
-      ClientThread::create("192.168.101.116", 22334, framedTransport);
+      ClientThread::create("192.168.101.64", 22334, framedTransport);
 
   clientThread->startAndJoin();
 

@@ -77,10 +77,16 @@ int32_t ServerThread::bindAddress(int32_t fd, std::string ip, int32_t port) {
   return bind(fd, (sockaddr *)&server_addr, sizeof(server_addr));
 }
 
-int32_t ServerThread::startAndJoin() {
-  std::thread thread(std::bind(&EpollEvent::epollWaitLoop, epoll_event.get()));
-  thread.join();
+int32_t ServerThread::start() {
+  thread_ = std::make_shared<std::thread>(
+      std::thread(std::bind(&EpollEvent::epollWaitLoop, epoll_event.get())));
 
+  return 0;
+}
+
+int32_t ServerThread::startAndJoin() {
+  start();
+  thread_->join();
   return 0;
 }
 
@@ -136,4 +142,13 @@ void ServerThread::closeConnection(int32_t fd) {
   onConnectionClosed(fd);
   epoll_event->unregisterSocket(fd);
   close(fd);
+}
+
+void ServerThread::terminate() {
+  epoll_event->terminate();
+
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(1s);
+
+  thread_->join();
 }
