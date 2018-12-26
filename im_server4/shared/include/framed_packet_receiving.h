@@ -25,7 +25,7 @@ protected:
   uint32_t bytesToReadIntoHeader();
   uint32_t bytesToReadIntoBody();
 
-private:
+public:
   uint32_t header_bytes_read;
   uint32_t body_bytes_read;
 };

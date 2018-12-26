@@ -73,12 +73,10 @@ int32_t FramedPacketSending::updateBytesSent(uint32_t bytes_sent) {
 ////////////////////////////////////////////////////////////////////////////////
 FramedPacketSendingQ::FramedPacketSendingQ(){}
 
-int32_t FramedPacketSendingQ::pushPacket(
+void FramedPacketSendingQ::pushPacket(
     std::shared_ptr<FramedPacketSending> packet) {
   std::scoped_lock<std::recursive_mutex> lock(sending_buffer_mutex);
   sending_buffer.push_back(packet);
-
-  return 0;
 }
 
 void FramedPacketSendingQ::popPacket() {

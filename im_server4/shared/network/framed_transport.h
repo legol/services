@@ -14,6 +14,7 @@
 #include <mutex>
 
 #include "transport.h"
+#include "socket_status.h"
 
 #pragma pack(push, 1)
 struct FramedPacketHeader {
@@ -70,11 +71,19 @@ private:
                       uint8_t *received, uint32_t bytes_received,
                       bool &full_packet_received);
 
+  void updateSocketReadStatus(int32_t fd, bool canRead);
+  void updateSocketWriteStatus(int32_t fd, bool canWrite);
+  bool canRead(int32_t fd);
+  bool canWrite(int32_t fd);
+
 private:
   std::map<int32_t, std::shared_ptr<FramedPacketReceiving>> receiving_buffer;
 
   std::map<int32_t, std::shared_ptr<FramedPacketSendingQ>> sending_buffer;
   std::recursive_mutex sending_buffer_mutex;
+
+  std::map<int32_t, SocketStatus> socket_status;
+  std::recursive_mutex socket_status_mutex;
 
   std::function<int32_t(int32_t fd, std::shared_ptr<FramedPacket>)>
       onPacketReceived;

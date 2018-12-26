@@ -4,8 +4,8 @@ MODULE_NAME=im_server
 BINDIR=./output
 TARGET=apps/server
 TARGET1=apps/test_client
+TARGET2=apps/echo_server
 TARGET_TEST=__tests__/test
-TARGET_TEST1=__tests__/echo_server
 INCLUDE_PATH=./include
 LIBRARY_PATH=./lib
 SHARED=shared
@@ -27,11 +27,11 @@ DT=g++ -std=c++17 -std=gnu++17 -g -Wall -o $@ $^
 AR = ar r
 RANLIB = ranlib
 
-release:sub_dir static_lib clrtarget $(TARGET) $(TARGET1) $(TARGET_TEST) $(TARGET_TEST1)
+release:sub_dir static_lib clrtarget $(TARGET) $(TARGET1) $(TARGET2) $(TARGET_TEST)
 	cp $(TARGET) $(BINDIR)
 	cp $(TARGET1) $(BINDIR)
+	cp $(TARGET2) $(BINDIR)
 	cp $(TARGET_TEST) $(BINDIR)
-	cp $(TARGET_TEST1) $(BINDIR)
 
 sub_dir: dir
 #   -@mkdir include
@@ -53,7 +53,7 @@ clrtarget:
 	-@rm -rf $(TARGET)
 	-@rm -rf $(TARGET1)
 	-@rm -rf $(TARGET_TEST)
-	-@rm -rf $(TARGET_TEST1)
+	-@rm -rf $(TARGET2)
 
 OBJS_APPS_SERVER = apps/server.o
 apps/server:$(OBJS_APPS_SERVER)
@@ -65,13 +65,13 @@ apps/test_client:$(OBJS_APPS_TEST_CLIENT)
 	$(DT) $(LIB)
 	@echo ""
 
-OBJS_TEST = __tests__/test.o
+OBJS_TEST = __tests__/test.o __tests__/echo_server.o
 __tests__/test:$(OBJS_TEST)
 	$(DT) $(LIB) $(GTEST_LIB)/libgtest.a $(GMOCK_LIB)/libgmock.a
 	@echo ""
 
-OBJS_TEST1 = __tests__/echo_server.o
-__tests__/echo_server:$(OBJS_TEST1)
+OBJS_ECHO_SERVER = apps/echo_server.o
+apps/echo_server:$(OBJS_ECHO_SERVER)
 	$(DT) $(LIB)
 	@echo ""
 
@@ -105,6 +105,6 @@ clean: dir
 	-@rm -rf  apps/*.o
 	-@rm -rf $(TARGET)
 	-@rm -rf $(TARGET1)
+	-@rm -rf $(TARGET2)
 	-@rm -rf $(TARGET_TEST)
-	-@rm -rf $(TARGET_TEST1)
 	-@rm -rf output/*

@@ -41,10 +41,12 @@ public:
   FramedPacketSendingQ();
 
 protected:
-  int32_t pushPacket(std::shared_ptr<FramedPacketSending> packet);
+  void pushPacket(std::shared_ptr<FramedPacketSending> packet);
   void popPacket();
   std::shared_ptr<FramedPacketSending> topPacket();
   bool empty();
+
+  int32_t size() {return sending_buffer.size();}
 
 private:
   std::deque<std::shared_ptr<FramedPacketSending>> sending_buffer;
