@@ -110,8 +110,6 @@ int32_t ClientThread::onRead() {
 }
 
 int32_t ClientThread::onWrite() {
-  printf("%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
-
   if (transport->sendToSocket(fd) != 0) {
     closeConnection();
     return -1;

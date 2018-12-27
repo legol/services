@@ -85,20 +85,14 @@ void EpollEvent::epollWaitLoop() {
       // itrCallback might be invalid after onXXXX()
       auto callback = itrCallback->second;
       if (curr_event & (EPOLLERR | EPOLLHUP)) {
-        printf("%s:%d:%s EPOLLERR...\n", __FILE__, __LINE__, __FUNCTION__);
-
         callback->onError(curr_fd);
       }
 
       if (curr_event & EPOLLIN) {
-        printf("%s:%d:%s EPOLLIN...\n", __FILE__, __LINE__, __FUNCTION__);
-
         callback->onRead(curr_fd);
       }
 
       if (curr_event & EPOLLOUT) {
-        printf("%s:%d:%s EPOLLOUT...\n", __FILE__, __LINE__, __FUNCTION__);
-
         callback->onWrite(curr_fd);
       }
     }

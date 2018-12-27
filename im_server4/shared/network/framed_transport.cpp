@@ -53,26 +53,20 @@ int32_t FramedTransport::readFromSocket(int32_t fd) {
 
   while (true) {
     int32_t bytes_received = recv(fd, buffer, buffer_len, 0);
-    printf("%s:%d:%s bytes_received=%d\n", __FILE__, __LINE__, __FUNCTION__, bytes_received);
-
     if (bytes_received == -1) {
       if ((EAGAIN == errno) || (EINTR == errno)) {
-        printf("%s:%d:%s readFromSocket Error errno=%d %d %d\n", __FILE__, __LINE__,
-               __FUNCTION__, errno, EAGAIN, EINTR);
         updateSocketReadStatus(fd, false);
         return 0; // retry later
       }
       printf("%s:%d:%s readFromSocket fatal\n", __FILE__, __LINE__, __FUNCTION__);
       return -1;
     } else if (bytes_received == 0) {
-      printf("%s:%d:%s readFromSocket received 0\n", __FILE__, __LINE__, __FUNCTION__);
       updateSocketReadStatus(fd, false);
       return 0;
     }
 
     auto itrReceiving = receiving_buffer.find(fd);
     if (itrReceiving == receiving_buffer.end()) {
-      printf("new buffer fd=%d\n", fd);
       receiving_buffer[fd] =
           std::shared_ptr<FramedPacketReceiving>(new FramedPacketReceiving());
       itrReceiving = receiving_buffer.find(fd);
@@ -83,7 +77,6 @@ int32_t FramedTransport::readFromSocket(int32_t fd) {
     auto process_result = forgeFrames(fd, receiving_packet, (uint8_t *)buffer,
                                       bytes_received, full_packet_received);
     if (full_packet_received) {
-      printf("full packet received\n");
       receiving_buffer.erase(itrReceiving);
     }
     if (process_result != 0) {
@@ -105,10 +98,6 @@ int32_t FramedTransport::sendToSocket(int32_t fd) {
   }
 
   auto sending_q = itrQ->second;
-
-  printf("%s:%d:%s sending buffer fd = %d, size = %d\n", __FILE__, __LINE__,
-         __FUNCTION__, fd, sending_q->size());
-
   while (!(sending_q->empty())) {
     auto sending_packet = sending_q->topPacket();
     auto bytes_sent = send(fd, sending_packet->remainingPointer(),
@@ -117,14 +106,11 @@ int32_t FramedTransport::sendToSocket(int32_t fd) {
     if (bytes_sent == -1) {
       if ((EAGAIN == errno) || (EINTR == errno)) {
         // do nothing, wait for EPOLLOUT
-        printf("EAGAIN on sending.\n");
         updateSocketWriteStatus(fd, false);
         return 0;
       } else {
         // real error
-        printf("%s:%d:%s fatal on write socket=%d.\n", __FILE__, __LINE__,
-               __FUNCTION__, fd);
-        return 0;
+        return 0; // TODO: close connection
       }
     } else {
       // sent something.
@@ -150,20 +136,9 @@ int32_t FramedTransport::forgeFrames(
     return -1;
   }
 
-  printf("%s:%d:%s bytes_received=%d\n", __FILE__, __LINE__, __FUNCTION__,
-         bytes_received);
-
-  bool log = false;
-  if (bytes_received == 278078) {
-    log = true;
-  }
-
   uint32_t bytes_consumed = 0;
   while (bytes_consumed < bytes_received) {
     uint32_t bytes_left = bytes_received - bytes_consumed;
-    if (bytes_received == 278078) {
-      printf("%s:%d:%s bytes_left=%d\n", __FILE__, __LINE__, __FUNCTION__, bytes_left);
-    }
     if (!(receiving_packet->headerCompleted())) {
       // forge header
       uint32_t bytes_to_read_into_header =
@@ -174,12 +149,6 @@ int32_t FramedTransport::forgeFrames(
       bytes_consumed += std::min(bytes_to_read_into_header, bytes_left);
 
       if (receiving_packet->headerCompleted()) {
-        if (bytes_received == 278078) {
-          printf("%s:%d:%s body_len=%d\n", __FILE__, __LINE__, __FUNCTION__,
-                 receiving_packet->header.body_len);
-        }
-
-
         // alloc memory for body
         receiving_packet->allocBody();
       }
@@ -187,10 +156,6 @@ int32_t FramedTransport::forgeFrames(
       // forge body
       if (receiving_packet->completed()) {
         // a completed packet received
-        if (bytes_received == 278078) {
-          printf("%s:%d:%s complete\n", __FILE__, __LINE__, __FUNCTION__);
-        }
-
         auto received_packet =
             std::dynamic_pointer_cast<FramedPacket>(receiving_packet);
         auto process_result = onPacketReceived(fd, received_packet);
@@ -204,17 +169,10 @@ int32_t FramedTransport::forgeFrames(
 
       uint32_t bytes_to_read_into_body =
           receiving_packet->bytesToReadIntoBody();
-          printf("%s:%d:%s bytes_to_read_into_body=%d\n", __FILE__, __LINE__, __FUNCTION__,
-                 bytes_to_read_into_body);
       receiving_packet->appendToBody(
           received + bytes_consumed,
           std::min(bytes_to_read_into_body, bytes_left));
       bytes_consumed += std::min(bytes_to_read_into_body, bytes_left);
-
-      if (bytes_received == 278078) {
-        printf("%s:%d:%s bytes_consumed=%d\n", __FILE__, __LINE__, __FUNCTION__,
-               bytes_consumed);
-      }
     }
   }
 
@@ -225,7 +183,6 @@ int32_t FramedTransport::forgeFrames(
     auto process_result = onPacketReceived(fd, received_packet);
     full_packet_received = true;
     if (process_result != 0) {
-      printf("aa process_result=%d\n", process_result);
       return process_result;
     }
     receiving_packet->reset();
@@ -234,10 +191,6 @@ int32_t FramedTransport::forgeFrames(
   }
 
   full_packet_received = false;
-  printf(
-      "packet not complete. fd=%d, header_bytes_read=%d, body_bytes_read=%d\n",
-      fd, receiving_packet->header_bytes_read,
-      receiving_packet->body_bytes_read);
   return 0;
 }
 

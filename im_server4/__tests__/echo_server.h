@@ -9,6 +9,8 @@
 
 class EchoServer {
 public:
+  EchoServer();
+
   int32_t onPacketReceived(int32_t fd, std::shared_ptr<FramedPacket> packet);
   int32_t onConnected(int32_t fd, sockaddr_in &addr);
   void onDisconnected(int32_t fd);
@@ -19,4 +21,6 @@ public:
 protected:
   std::shared_ptr<ITransport> transport_;
   std::shared_ptr<ServerThread> serverThread_;
+
+  int32_t numPacketsReceived;
 };
