@@ -6,3 +6,4 @@ use gtest to test server and client
   server/client gracefully exit
   separate startAndJoin to start() and join()
   add exit()
+  test huge packet

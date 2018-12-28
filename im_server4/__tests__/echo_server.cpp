@@ -9,13 +9,13 @@ EchoServer::EchoServer() {
 int32_t EchoServer::onPacketReceived(int32_t fd,
                                      std::shared_ptr<FramedPacket> packet) {
   numPacketsReceived++;
-  printf("%s:%d:%s num_received=%d\n", __FILE__, __LINE__, __FUNCTION__,
-         numPacketsReceived);
+  // printf("%s:%d:%s num_received=%d\n", __FILE__, __LINE__, __FUNCTION__,
+  //        numPacketsReceived);
 
   std::string payload(packet->body.get(),
                       packet->body.get() + packet->header.body_len);
-  printf("header len:%d payload:%s\n", packet->header.body_len,
-         payload.c_str());
+  // printf("header len:%d payload:%s\n", packet->header.body_len,
+  //        payload.c_str());
 
   std::string echoPayload = payload;
   std::shared_ptr<uint8_t> echoPacket =

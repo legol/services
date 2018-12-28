@@ -105,8 +105,6 @@ int32_t ServerThread::onRead(int32_t fd) {
       closeConnection(new_socket);
     }
   } else {
-    printf("%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
-
     if (transport->readFromSocket(fd) != 0) {
       closeConnection(fd);
     }

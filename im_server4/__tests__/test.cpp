@@ -119,6 +119,8 @@ TEST(TestClient, testMultipleSendReceivePackets) {
 
 class MockClient2 {
  public:
+   MockClient2(const std::string &packetToSend): content_(packetToSend) {}
+
    int32_t onPacketReceived(int32_t fd, std::shared_ptr<FramedPacket> packet) {
      EXPECT_EQ(packet->header.body_len, content_.length());
 
@@ -147,11 +149,38 @@ class MockClient2 {
 
 protected:
   std::shared_ptr<ITransport> transport_;
-  const std::string content_ = "abcdefg";
+  const std::string content_;
 };
 
 TEST(TestClient, testPacketContent) {
-  MockClient2 client;
+  MockClient2 client("abcdefg");
+  std::shared_ptr<ITransport> framedTransport = FramedTransport::create(
+      std::bind(&MockClient2::onPacketReceived, &client, _1, _2),
+      std::bind(&MockClient2::onConnected, &client, _1, _2),
+      std::bind(&MockClient2::onDisconnected, &client, _1));
+
+  client.setTransport(framedTransport);
+
+  std::shared_ptr<ClientThread> clientThread =
+      ClientThread::create("192.168.101.64", 22334, framedTransport);
+
+  // We'll send a packet to echo server on connect.
+  // echo server will send it back so our onPacketReceived() should be called.
+  // We'll verify packet content there
+  clientThread->start();
+
+  // Do not exit immediately.
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(1s);
+
+  clientThread->terminate();
+}
+
+TEST(TestClient, testHugePacket) {
+  std::string packet;
+  packet.append(1024*1024, 'a'); // 1M bytes
+
+  MockClient2 client(packet);
   std::shared_ptr<ITransport> framedTransport = FramedTransport::create(
       std::bind(&MockClient2::onPacketReceived, &client, _1, _2),
       std::bind(&MockClient2::onConnected, &client, _1, _2),
